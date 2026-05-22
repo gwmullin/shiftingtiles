@@ -208,12 +208,8 @@ body {
 
 .pan-wide {
 	.animation(pan-right-left, 20s, 0, linear);
-	.animation-iteration-count(infinite);
-	-webkit-animation-direction: alternate;
-	-moz-animation-direction: alternate;
-	-ms-animation-direction: alternate;
-	-o-animation-direction: alternate;
-	animation-direction: alternate;
+	.animation-iteration-count(1);
+	.animation-fill-mode(forwards);
 }
 
 .keyframes(pan-right-left;{
