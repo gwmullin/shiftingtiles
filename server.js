@@ -28,7 +28,6 @@ function forceProcess(filename) {
     if (VERBOSE) console.log(`[VERBOSE] Image ${filename} is already in-flight for processing.`);
     return inFlight.get(filename);
   }
-  if (VERBOSE) console.log(`[VERBOSE] Forcing processing of ${filename}...`);
   const promise = processImage(filename, imagesDir, cacheDir)
     .then(meta => {
       metadataIndex.set(filename, meta);
