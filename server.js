@@ -7,10 +7,7 @@ const {
   loadModels,
   isImageFile,
   processImage,
-  loadMetadata,
   removeCacheEntry,
-  wipeCache,
-  processAll,
   metadataPath,
   resizedPath,
 } = require('./imageProcessor');
@@ -25,13 +22,8 @@ const cacheDir = path.join(__dirname, 'public', 'photos', 'cache');
 const metadataIndex = new Map();
 const inFlight = new Map();
 
-function ensureProcessed(filename) {
-  if (metadataIndex.has(filename)) {
-    return Promise.resolve(metadataIndex.get(filename));
-  }
-  if (inFlight.has(filename)) {
-    return inFlight.get(filename);
-  }
+function forceProcess(filename) {
+  if (inFlight.has(filename)) return inFlight.get(filename);
   const promise = processImage(filename, imagesDir, cacheDir)
     .then(meta => {
       metadataIndex.set(filename, meta);
@@ -42,6 +34,13 @@ function ensureProcessed(filename) {
     });
   inFlight.set(filename, promise);
   return promise;
+}
+
+function ensureProcessed(filename) {
+  if (metadataIndex.has(filename)) {
+    return Promise.resolve(metadataIndex.get(filename));
+  }
+  return forceProcess(filename);
 }
 
 app.get('/images/:filename', async (req, res, next) => {
@@ -85,25 +84,31 @@ app.get('/api/config', (req, res) => {
   res.json({ refreshInterval: parseInt(REFRESH_INTERVAL, 10) });
 });
 
-async function startup() {
-  console.log('Loading face detection models...');
-  await loadModels();
-  console.log('Models loaded.');
-
-  console.log('Wiping cache directory...');
-  await wipeCache(cacheDir);
-
-  const entries = await fsp.readdir(imagesDir);
-  const files = entries.filter(isImageFile);
-  console.log(`Processing ${files.length} images...`);
-  const t0 = Date.now();
-  const { results, errors } = await processAll(imagesDir, cacheDir, 2);
-  for (const [filename, meta] of Object.entries(results)) {
-    metadataIndex.set(filename, meta);
+async function loadExistingMetadata() {
+  let entries;
+  try {
+    entries = await fsp.readdir(cacheDir);
+  } catch {
+    return 0;
   }
-  const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
-  console.log(`Processed ${Object.keys(results).length} images in ${elapsed}s (${errors.length} errors)`);
+  let loaded = 0;
+  for (const file of entries) {
+    if (!file.endsWith('.json')) continue;
+    try {
+      const data = await fsp.readFile(path.join(cacheDir, file), 'utf8');
+      const meta = JSON.parse(data);
+      if (meta && meta.filename) {
+        metadataIndex.set(meta.filename, meta);
+        loaded++;
+      }
+    } catch {
+      // skip corrupt entries; will be regenerated
+    }
+  }
+  return loaded;
+}
 
+function setupWatcher() {
   const watcher = chokidar.watch(imagesDir, {
     ignored: /(^|[\/\\])\../,
     ignoreInitial: true,
@@ -126,10 +131,8 @@ async function startup() {
     const filename = path.basename(filePath);
     if (!isImageFile(filename)) return;
     console.log(`Image changed: ${filename}`);
-    metadataIndex.delete(filename);
-    await removeCacheEntry(cacheDir, filename);
     try {
-      await ensureProcessed(filename);
+      await forceProcess(filename);
       console.log(`  ✓ ${filename}`);
     } catch (err) {
       console.error(`  ✗ ${filename}: ${err.message}`);
@@ -142,6 +145,60 @@ async function startup() {
     console.log(`Image removed: ${filename}`);
     metadataIndex.delete(filename);
     await removeCacheEntry(cacheDir, filename);
+  });
+}
+
+async function regenerateAll() {
+  console.log('Loading face detection models (background)...');
+  await loadModels();
+  console.log('Models loaded.');
+
+  let entries;
+  try {
+    entries = await fsp.readdir(imagesDir);
+  } catch {
+    entries = [];
+  }
+  const files = entries.filter(isImageFile);
+  const sourceSet = new Set(files);
+
+  for (const filename of [...metadataIndex.keys()]) {
+    if (!sourceSet.has(filename)) {
+      console.log(`Removing orphan cache entry: ${filename}`);
+      metadataIndex.delete(filename);
+      await removeCacheEntry(cacheDir, filename);
+    }
+  }
+
+  console.log(`Regenerating ${files.length} images in background...`);
+  const t0 = Date.now();
+  let done = 0;
+  let errors = 0;
+  for (const file of files) {
+    try {
+      await forceProcess(file);
+    } catch (err) {
+      errors++;
+      console.error(`  ✗ ${file}: ${err.message}`);
+    }
+    done++;
+    if (done % 10 === 0 || done === files.length) {
+      console.log(`  regenerated ${done}/${files.length}`);
+    }
+  }
+  const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+  console.log(`Regenerated ${done} images in ${elapsed}s (${errors} errors)`);
+}
+
+async function startup() {
+  await fsp.mkdir(cacheDir, { recursive: true });
+  const loaded = await loadExistingMetadata();
+  console.log(`Loaded ${loaded} cached metadata entries.`);
+
+  setupWatcher();
+
+  regenerateAll().catch(err => {
+    console.error('Background regeneration failed:', err);
   });
 }
 
