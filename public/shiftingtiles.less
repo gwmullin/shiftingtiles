@@ -205,3 +205,18 @@ body {
 .keyframes(disappear-dual;{	.disappear-frames(10%); });
 .keyframes(leave-l;{ .leave(1); });
 .keyframes(leave-r;{ .leave(-1); });
+
+.pan-wide {
+	.animation(pan-right-left, 20s, 0, linear);
+	.animation-iteration-count(infinite);
+	-webkit-animation-direction: alternate;
+	-moz-animation-direction: alternate;
+	-ms-animation-direction: alternate;
+	-o-animation-direction: alternate;
+	animation-direction: alternate;
+}
+
+.keyframes(pan-right-left;{
+	0% { background-position: 100% center; }
+	100% { background-position: 0% center; }
+});

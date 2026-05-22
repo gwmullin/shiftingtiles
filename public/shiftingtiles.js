@@ -57,7 +57,17 @@
 
     // Add background image from source to jQuery element
     function image($element){
-      $element.css("background-image", "url("+source()+")");
+      var src = source();
+      $element.css("background-image", "url("+src+")");
+      $element.removeClass("pan-wide");
+      
+      var img = new Image();
+      img.onload = function() {
+        if ((this.width / this.height) > (16 / 9)) {
+          $element.addClass("pan-wide");
+        }
+      };
+      img.src = src;
     }
 
     // Figure out single or dual and add images
