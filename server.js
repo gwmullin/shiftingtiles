@@ -24,7 +24,11 @@ const metadataIndex = new Map();
 const inFlight = new Map();
 
 function forceProcess(filename) {
-  if (inFlight.has(filename)) return inFlight.get(filename);
+  if (inFlight.has(filename)) {
+    if (VERBOSE) console.log(`[VERBOSE] Image ${filename} is already in-flight for processing.`);
+    return inFlight.get(filename);
+  }
+  if (VERBOSE) console.log(`[VERBOSE] Forcing processing of ${filename}...`);
   const promise = processImage(filename, imagesDir, cacheDir)
     .then(meta => {
       metadataIndex.set(filename, meta);
@@ -39,8 +43,10 @@ function forceProcess(filename) {
 
 function ensureProcessed(filename) {
   if (metadataIndex.has(filename)) {
+    if (VERBOSE) console.log(`[VERBOSE] Metadata for ${filename} already in index.`);
     return Promise.resolve(metadataIndex.get(filename));
   }
+  if (VERBOSE) console.log(`[VERBOSE] Metadata for ${filename} missing from index, triggering on-demand processing.`);
   return forceProcess(filename);
 }
 
@@ -102,6 +108,7 @@ async function loadExistingMetadata() {
       const data = await fsp.readFile(path.join(cacheDir, file), 'utf8');
       const meta = JSON.parse(data);
       if (meta && meta.filename) {
+        if (VERBOSE) console.log(`[VERBOSE] Loaded cached metadata for ${meta.filename}`);
         metadataIndex.set(meta.filename, meta);
         loaded++;
       }
