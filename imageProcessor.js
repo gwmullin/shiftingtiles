@@ -6,6 +6,8 @@ const faceapi = require('@vladmandic/face-api/dist/face-api.node-wasm.js');
 const { setWasmPaths } = require('@tensorflow/tfjs-backend-wasm');
 const canvas = require('canvas');
 
+const VERBOSE = process.env.VERBOSE === 'true';
+
 const { Canvas, Image, ImageData } = canvas;
 faceapi.env.monkeyPatch({ Canvas, Image, ImageData });
 
