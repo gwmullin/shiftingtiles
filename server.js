@@ -19,7 +19,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const REFRESH_INTERVAL = process.env.REFRESH_INTERVAL || 300000;
 
-const imagesDir = path.join(__dirname, 'public', 'images');
+const imagesDir = process.env.IMAGES_DIR || path.join(__dirname, 'public', 'images');
 const cacheDir = path.join(__dirname, 'public', 'photos', 'cache');
 
 const metadataIndex = new Map();
