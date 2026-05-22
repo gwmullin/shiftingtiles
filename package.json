@@ -18,6 +18,11 @@
   },
   "homepage": "https://github.com/gwmullin/shiftingtiles#readme",
   "dependencies": {
+    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs-backend-wasm": "^4.22.0",
+    "@vladmandic/face-api": "^1.7.15",
+    "canvas": "^3.2.3",
+    "chokidar": "^3.6.0",
     "express": "^5.2.1",
     "sharp": "^0.34.5"
   }

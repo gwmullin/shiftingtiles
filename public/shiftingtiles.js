@@ -57,17 +57,25 @@
 
     // Add background image from source to jQuery element
     function image($element){
-      var src = source();
+      var item = source();
+      var src = item.src;
+      var focalX = (item.focal && typeof item.focal.x === "number") ? item.focal.x : 0.5;
+      var focalY = (item.focal && typeof item.focal.y === "number") ? item.focal.y : 0.5;
+      var focalXPct = focalX * 100;
+      var focalYPct = focalY * 100;
+
       $element.css("background-image", "url("+src+")");
+      $element.css("background-position", focalXPct+"% "+focalYPct+"%");
       $element.removeClass("pan-wide");
-      
-      var img = new Image();
-      img.onload = function() {
-        if ((this.width / this.height) > (16 / 9)) {
-          $element.addClass("pan-wide");
-        }
-      };
-      img.src = src;
+      $element.css({
+        "--pan-y": focalYPct+"%",
+        "--pan-start-x": Math.min(100, focalXPct + 25)+"%",
+        "--pan-end-x": Math.max(0, focalXPct - 25)+"%"
+      });
+
+      if (item.aspect && item.aspect > (16 / 9)) {
+        $element.addClass("pan-wide");
+      }
     }
 
     // Figure out single or dual and add images

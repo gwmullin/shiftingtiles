@@ -15,17 +15,20 @@
 
 				function fetchImages() {
 					$.getJSON('/api/images', function(images) {
-						// Prepend 'images/' to filenames
-						const fullPaths = images.map(img => 'images/' + img);
-						
 						if (!initialized) {
-							imageArray.push.apply(imageArray, fullPaths);
+							if (images.length === 0) {
+								console.warn("No images available yet, retrying...");
+								setTimeout(fetchImages, 2000);
+								return;
+							}
+							imageArray.push.apply(imageArray, images);
 							$(".gallery").shiftingtiles(imageArray);
 							initialized = true;
 						} else {
-							// Add new images to the array if they don't exist
-							fullPaths.forEach(img => {
-								if ($.inArray(img, imageArray) === -1) {
+							const known = {};
+							imageArray.forEach(img => { known[img.src] = true; });
+							images.forEach(img => {
+								if (!known[img.src]) {
 									imageArray.push(img);
 								}
 							});

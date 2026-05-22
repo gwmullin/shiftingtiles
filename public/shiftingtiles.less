@@ -59,8 +59,7 @@ body {
 
 	.image() {
 		background-size: cover;
-		background-position: center;
-		/* background-image: to be filled in ;*/
+		/* background-image and background-position set inline */
 	}
 
 	& > .loading {
@@ -213,6 +212,6 @@ body {
 }
 
 .keyframes(pan-right-left;{
-	0% { background-position: 100% center; }
-	100% { background-position: 0% center; }
+	0% { background-position: var(--pan-start-x, 100%) var(--pan-y, 50%); }
+	100% { background-position: var(--pan-end-x, 0%) var(--pan-y, 50%); }
 });
