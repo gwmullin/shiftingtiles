@@ -15,9 +15,10 @@ const {
 const app = express();
 const PORT = process.env.PORT || 3000;
 const REFRESH_INTERVAL = process.env.REFRESH_INTERVAL || 300000;
+const VERBOSE = process.env.VERBOSE === 'true';
 
 const imagesDir = process.env.IMAGES_DIR || path.join(__dirname, 'public', 'images');
-const cacheDir = process.env.CACHE_DIR || path.join(__dirname, 'public', 'images', 'cache');
+const cacheDir = process.env.CACHE_DIR || path.join(__dirname, 'public', 'cache');
 
 const metadataIndex = new Map();
 const inFlight = new Map();
@@ -52,12 +53,15 @@ app.get('/images/:filename', async (req, res, next) => {
 
   try {
     if (fs.existsSync(cachedPath)) {
+      if (VERBOSE) console.log(`[VERBOSE] Serving cached image directly: ${filename}`);
       return res.sendFile(cachedPath);
     }
     if (fs.existsSync(sourcePath)) {
+      if (VERBOSE) console.log(`[VERBOSE] Cached image not found, processing on-demand: ${filename}`);
       await ensureProcessed(filename);
       return res.sendFile(cachedPath);
     }
+    if (VERBOSE) console.log(`[VERBOSE] Source image not found: ${filename}`);
     next();
   } catch (error) {
     console.error('Error processing image:', error);
@@ -153,6 +157,7 @@ async function regenerateAll() {
   await loadModels();
   console.log('Models loaded.');
 
+  if (VERBOSE) console.log('[VERBOSE] Starting background regeneration of all images...');
   let entries;
   try {
     entries = await fsp.readdir(imagesDir);
@@ -175,6 +180,7 @@ async function regenerateAll() {
   let done = 0;
   let errors = 0;
   for (const file of files) {
+    if (VERBOSE) console.log(`[VERBOSE] Background regenerating: ${file}`);
     try {
       await forceProcess(file);
     } catch (err) {
@@ -209,3 +215,4 @@ app.listen(PORT, () => {
     process.exit(1);
   });
 });
+

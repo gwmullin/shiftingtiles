@@ -56,6 +56,7 @@ function computeFocal(faces, imgWidth, imgHeight) {
 }
 
 async function processImage(filename, imagesDir, cacheDir) {
+  if (VERBOSE) console.log(`[VERBOSE] processImage started for ${filename}`);
   const sourcePath = path.join(imagesDir, filename);
   const stat = await fsp.stat(sourcePath);
 
@@ -74,11 +75,13 @@ async function processImage(filename, imagesDir, cacheDir) {
     score: d.score,
   }));
   const focal = computeFocal(detections, imgWidth, imgHeight);
+  if (VERBOSE) console.log(`[VERBOSE] Face detection completed for ${filename}, found ${faces.length} faces`);
 
   await sharp(sourcePath)
     .resize({ width: RESIZE_WIDTH, height: RESIZE_HEIGHT, fit: 'inside', withoutEnlargement: true })
     .withMetadata()
     .toFile(resizedPath(cacheDir, filename));
+  if (VERBOSE) console.log(`[VERBOSE] Image resizing and writing to cache completed for ${filename}`);
 
   const metadata = {
     filename,
@@ -91,11 +94,13 @@ async function processImage(filename, imagesDir, cacheDir) {
   };
 
   await fsp.writeFile(metadataPath(cacheDir, filename), JSON.stringify(metadata, null, 2));
+  if (VERBOSE) console.log(`[VERBOSE] Metadata saved for ${filename}`);
   return metadata;
 }
 
 async function loadMetadata(cacheDir, filename) {
   try {
+    if (VERBOSE) console.log(`[VERBOSE] Loading metadata for ${filename}`);
     const data = await fsp.readFile(metadataPath(cacheDir, filename), 'utf8');
     return JSON.parse(data);
   } catch {
