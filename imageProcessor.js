@@ -77,6 +77,7 @@ async function processImage(filename, imagesDir, cacheDir) {
 
   await sharp(sourcePath)
     .resize({ width: RESIZE_WIDTH, height: RESIZE_HEIGHT, fit: 'inside', withoutEnlargement: true })
+    .withMetadata()
     .toFile(resizedPath(cacheDir, filename));
 
   const metadata = {
