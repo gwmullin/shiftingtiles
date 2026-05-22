@@ -1,0 +1,23 @@
+{
+  "name": "shiftingtiles",
+  "version": "1.0.0",
+  "description": "[Shifting Tiles] ============= Shifting Tiles is the gallery that looks like the OS X Mountain Lion's Shifting Tiles screensaver. This amazing screensaver is just so nice, it needs a web-implementation. Now running as a Node.js Dockerized application with auto-discovery.",
+  "main": "shiftingtiles.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gwmullin/shiftingtiles.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/gwmullin/shiftingtiles/issues"
+  },
+  "homepage": "https://github.com/gwmullin/shiftingtiles#readme",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}

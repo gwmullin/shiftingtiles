@@ -1,0 +1,7 @@
+node_modules
+.npm
+.dockerignore
+Dockerfile
+.git
+.github
+*.md
