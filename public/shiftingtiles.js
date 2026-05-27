@@ -1,36 +1,54 @@
 (function( $ ){
 
-  $.fn.shiftingtiles = function(images, options) {
-  	
-    // Variables
-    var options = $.extend({
-          photosource: images,
-          duration: 5000,
-        }, options), 
-        timeout, 
-        where = this;
+  const TILE_SIZES = {
+    1: { single: 16, dual: 8 },  // small
+    2: { single: 24, dual: 12 },
+    3: { single: 40, dual: 20 }, // medium (default)
+    4: { single: 50, dual: 25 },
+    5: { single: 80, dual: 40 }  // extra large
+  };
+
+  $.fn.shiftingtiles = function(imagesOrCommand, options) {
+    var where = this;
     
-    where.on("animationend webkitAnimationEnd oAnimationEnd", ".leave > .row", function(){
+    // Check if we are running a command
+    if (typeof imagesOrCommand === "string") {
+      var command = imagesOrCommand;
+      var instance = where.data("shiftingtiles");
+      if (instance && typeof instance[command] === "function") {
+        return instance[command].apply(instance, Array.prototype.slice.call(arguments, 1));
+      }
+      return this;
+    }
+    
+    // Otherwise, initialize
+    var images = imagesOrCommand;
+    var settings = $.extend({
+      photosource: images,
+      duration: 5000,
+      rows: 2,
+      tileSize: 3
+    }, options);
+    
+    var timeout;
+    
+    // Setup listeners (once)
+    where.off(".shiftingtiles"); // Clear any old event namespace
+    where.on("animationend webkitAnimationEnd oAnimationEnd.shiftingtiles", ".leave > .row", function(){
       $(this).parent().addClass("left").removeClass("leave");
     });
-    where.on("animationend webkitAnimationEnd oAnimationEnd", ".disappear", function(){
-      //console.log("Animation end, removing node",this);
-      // $(this).  this wasn't working, why? no idea
+    where.on("animationend webkitAnimationEnd oAnimationEnd.shiftingtiles", ".disappear", function(){
       $(this).css("display", "none").remove();
       where.trigger("st-animate-after");
-
       return false;
     });
 
-    setup(this);
-
-    // Source
+    // Source function
     function source(){
       if(typeof images.bottom == "undefined")
         images.bottom = 0;
 
       var index = images.bottom + Math.floor((images.length - images.bottom) * Math.random());
-      //console.log(index, 1, images.bottom, images);
       var one = images.splice(index, 1)[0];
       images.unshift(one);
 
@@ -44,20 +62,10 @@
       return one;
     }
 
-  	// Setup
-  	function setup(where){
-  	 	where.addClass("shiftingtiles");
-	  	where.prepend("<div class='row'><div class='single'></div><div class='single'></div><div class='dual'><div></div><div></div></div></div>");
-	  	where.prepend("<div class='row'><div class='single'></div><div class='single'></div><div class='dual'><div></div><div></div></div></div>");
-      where.append("<div class='loading'>Loading Photos...</div>");
-
-      where.find(".single, .dual > div").each(addImage);
-      timeout = setTimeout(frame, options.duration);
-    }
-
     // Add background image from source to jQuery element
     function image($element){
       var item = source();
+      if (!item) return;
       var src = item.src;
       var focalX = (item.focal && typeof item.focal.x === "number") ? item.focal.x : 0.5;
       var focalY = (item.focal && typeof item.focal.y === "number") ? item.focal.y : 0.5;
@@ -80,50 +88,124 @@
 
     // Figure out single or dual and add images
     function addImage(index, node){
-      node = $(node);
-      //console.log(node);
-      // Load new images
-      if(node.hasClass("single") || node.parent(".dual").size() > 0){
-        image(node);
-      } else if(node.hasClass("dual")) {
-        node.children().each(function(){
+      var $node = $(node);
+      if($node.hasClass("single") || $node.parent(".dual").length > 0){
+        image($node);
+      } else if($node.hasClass("dual")) {
+        $node.children().each(function(){
           image($(this));
         });
       }
-
-      return node;
+      return $node;
     }
 
-    // Animate frame, remove box and add new one
-  	function frame(){
-  		clearTimeout(timeout);
-  		var boxes = where.find(".single:not(:last-child), .dual:not(:last-child)");
-  		var disappear = $(boxes.get( ~~(Math.random() * boxes.size()) ));
+    // Dynamic grid building
+    function buildGrid() {
+      where.empty();
+      where.addClass("shiftingtiles");
+      
+      var sizeConfig = TILE_SIZES[settings.tileSize || 3];
+      var disappearDuration = Math.min(1.5, Math.max(0.3, settings.duration / 5000)) + 's';
+      
+      where.each(function() {
+        this.style.setProperty('--row-height', (100 / settings.rows) + '%');
+        this.style.setProperty('--single-width', (sizeConfig.single / 2) + '%');
+        this.style.setProperty('--dual-width', (sizeConfig.dual / 2) + '%');
+        this.style.setProperty('--disappear-duration', disappearDuration);
+      });
+      
+      for (var r = 0; r < settings.rows; r++) {
+        var $row = $("<div class='row'></div>");
+        where.append($row);
+        
+        var currentWidth = 0;
+        var singlePercent = sizeConfig.single / 2;
+        var dualPercent = sizeConfig.dual / 2;
+        
+        while (currentWidth < 60) {
+          var isSingle = Math.random() > 0.4;
+          if (isSingle) {
+            $row.append("<div class='single'></div>");
+            currentWidth += singlePercent;
+          } else {
+            $row.append("<div class='dual'><div></div><div></div></div>");
+            currentWidth += dualPercent;
+          }
+        }
+      }
+      
+      where.append("<div class='loading'>Loading Photos...</div>");
+      where.find(".single, .dual > div").each(function(idx, el) {
+        addImage(0, el);
+      });
+    }
+
+    // Animate frame
+    function frame(){
+      clearTimeout(timeout);
+      var boxes = where.find(".single:not(:last-child), .dual:not(:last-child)");
+      if (boxes.length === 0) return;
+      
+      var disappear = $(boxes.get( ~~(Math.random() * boxes.length) ));
 
       where.trigger("st-animate-before", disappear);
 
-  		disappear.parent().append(addImage(0, disappear.clone()));
-  		disappear.addClass("disappear");
+      disappear.parent().append(addImage(0, disappear.clone()));
+      disappear.addClass("disappear");
       where.trigger("st-animate", disappear);
 
-      timeout = setTimeout(frame, options.duration);
-  	}
+      timeout = setTimeout(frame, settings.duration);
+    }
 
-  	$(document.body).keydown(function(e){
-      //console.log("Key up");
-  		if(e.keyCode == 32){ 
+    // Keydown handler
+    $(document.body).off(".shiftingtiles").on("keydown.shiftingtiles", function(e){
+      if(e.keyCode == 32){ 
         frame();
         e.preventDefault();
         return false;
       }
       if(e.keyCode == 38){
-        $(".shiftingtiles").toggleClass("leave");
+        where.toggleClass("leave");
       }
-  	});
-    
-    // Chainability
-    return this;
+    });
 
+    // Initialize state object for external control
+    var instance = {
+      update: function(newOptions) {
+        var oldRows = settings.rows;
+        var oldSize = settings.tileSize;
+        var oldDuration = settings.duration;
+        
+        $.extend(settings, newOptions);
+        
+        var sizeConfig = TILE_SIZES[settings.tileSize || 3];
+        var disappearDuration = Math.min(1.5, Math.max(0.3, settings.duration / 5000)) + 's';
+        
+        where.each(function() {
+          this.style.setProperty('--row-height', (100 / settings.rows) + '%');
+          this.style.setProperty('--single-width', (sizeConfig.single / 2) + '%');
+          this.style.setProperty('--dual-width', (sizeConfig.dual / 2) + '%');
+          this.style.setProperty('--disappear-duration', disappearDuration);
+        });
+        
+        if (settings.rows !== oldRows || settings.tileSize !== oldSize) {
+          buildGrid();
+        }
+        
+        if (settings.duration !== oldDuration) {
+          clearTimeout(timeout);
+          timeout = setTimeout(frame, settings.duration);
+        }
+      }
+    };
+    
+    where.data("shiftingtiles", instance);
+
+    // Initial grid construction and start timer
+    buildGrid();
+    timeout = setTimeout(frame, settings.duration);
+
+    return this;
   };
 })( jQuery );
 

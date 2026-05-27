@@ -1,6 +1,15 @@
 <!DOCTYPE html>
 <html>
 	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>Shifting Tiles Gallery</title>
+		
+		<!-- Modern Typography -->
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+		
 		<script src="jquery-1.8.3.js"></script>
 		<script src="shiftingtiles.js"></script>
 		<link rel="stylesheet/less" type="text/css" href="shiftingtiles.less">
@@ -8,10 +17,134 @@
 	</head>
 	<body>
 		<div class="gallery"></div>
+
+		<!-- Settings Floating Trigger Button -->
+		<button class="settings-trigger" id="settings-trigger-btn" popovertarget="settings-menu" aria-label="Open Settings">
+			<svg viewBox="0 0 24 24">
+				<path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/>
+			</svg>
+		</button>
+
+		<!-- Glassmorphic Settings Menu Popover -->
+		<div id="settings-menu" popover>
+			<h3>
+				<svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: #a78bfa;">
+					<path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/>
+				</svg>
+				Gallery Settings
+			</h3>
+			
+			<!-- Rows Configuration -->
+			<div class="setting-group">
+				<label>Number of Rows <span class="value" id="rows-val">2</span></label>
+				<div class="segmented-control" id="rows-control">
+					<button type="button" data-val="1">1</button>
+					<button type="button" data-val="2" class="active">2</button>
+					<button type="button" data-val="3">3</button>
+					<button type="button" data-val="4">4</button>
+				</div>
+			</div>
+
+			<!-- Tile Size Configuration -->
+			<div class="setting-group">
+				<label>Tile Size <span class="value" id="size-val">3</span></label>
+				<input type="range" id="size-slider" min="1" max="5" value="3" step="1">
+			</div>
+
+			<!-- Transition Speed Configuration -->
+			<div class="setting-group">
+				<label>Transition Interval <span class="value" id="speed-val">5.0s</span></label>
+				<input type="range" id="speed-slider" min="1000" max="10000" value="5000" step="500">
+			</div>
+		</div>
+
 		<script>
 			$(document).ready(function() {
 				let imageArray = [];
 				let initialized = false;
+
+				// Settings State
+				let currentRows = 2;
+				let currentTileSize = 3;
+				let currentDuration = 5000;
+
+				// Mouse movement auto-hide gear button logic
+				let mouseMoveTimeout;
+				const $settingsTrigger = $("#settings-trigger-btn");
+				const $settingsMenu = $("#settings-menu");
+
+				function showGear() {
+					$settingsTrigger.addClass("show-settings-trigger");
+					clearTimeout(mouseMoveTimeout);
+					
+					// Only start the fade out timer if settings menu is closed
+					// and mouse is not currently hovering over the trigger button or popover
+					if (!$settingsMenu.is(":popover-open") && !$settingsTrigger.is(":hover") && !$settingsMenu.is(":hover")) {
+						mouseMoveTimeout = setTimeout(hideGear, 3000);
+					}
+				}
+
+				function hideGear() {
+					if (!$settingsMenu.is(":popover-open") && !$settingsTrigger.is(":hover") && !$settingsMenu.is(":hover")) {
+						$settingsTrigger.removeClass("show-settings-trigger");
+					}
+				}
+
+				$(document).on("mousemove", showGear);
+
+				// Prevent hiding when hovering over settings trigger or menu
+				$settingsTrigger.on("mouseenter", showGear).on("mouseleave", function() {
+					mouseMoveTimeout = setTimeout(hideGear, 2000);
+				});
+
+				$settingsMenu.on("mouseenter", showGear).on("mouseleave", function() {
+					mouseMoveTimeout = setTimeout(hideGear, 2000);
+				});
+
+				// When popover closes or opens, check if we should hide/keep the gear
+				$settingsMenu.on("toggle", function(event) {
+					if (event.newState === "closed") {
+						mouseMoveTimeout = setTimeout(hideGear, 1000);
+					} else {
+						clearTimeout(mouseMoveTimeout);
+					}
+				});
+
+				// Listeners for setting inputs
+				// 1. Rows Control (Segmented Buttons)
+				$("#rows-control button").on("click", function() {
+					$("#rows-control button").removeClass("active");
+					$(this).addClass("active");
+					
+					currentRows = parseInt($(this).attr("data-val"), 10);
+					$("#rows-val").text(currentRows);
+					
+					updateGallerySettings();
+				});
+
+				// 2. Tile Size Control
+				$("#size-slider").on("input", function() {
+					currentTileSize = parseInt($(this).val(), 10);
+					$("#size-val").text(currentTileSize);
+					updateGallerySettings();
+				});
+
+				// 3. Transition Speed Control
+				$("#speed-slider").on("input", function() {
+					currentDuration = parseInt($(this).val(), 10);
+					$("#speed-val").text((currentDuration / 1000).toFixed(1) + "s");
+					updateGallerySettings();
+				});
+
+				function updateGallerySettings() {
+					if (initialized) {
+						$(".gallery").shiftingtiles("update", {
+							rows: currentRows,
+							tileSize: currentTileSize,
+							duration: currentDuration
+						});
+					}
+				}
 
 				function fetchImages() {
 					$.getJSON('/api/images', function(images) {
@@ -22,7 +155,13 @@
 								return;
 							}
 							imageArray.push.apply(imageArray, images);
-							$(".gallery").shiftingtiles(imageArray);
+							
+							// Initialize gallery plugin with options state
+							$(".gallery").shiftingtiles(imageArray, {
+								rows: currentRows,
+								tileSize: currentTileSize,
+								duration: currentDuration
+							});
 							initialized = true;
 						} else {
 							const known = {};
