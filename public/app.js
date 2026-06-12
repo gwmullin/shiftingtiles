@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 // Settings
 // ---------------------------------------------------------------------------
-const DEFAULTS = { speed: 1, delay: 6, bounce: 15, bounceMode: 'natural', size: 20, rows: 2, border: 5 };
+const DEFAULTS = { speed: 1, delay: 6, bounce: 15, bounceMode: 'natural', size: 20, rows: 2, border: 5, panSpeed: 1, small: 20 };
 const BOUNCE_MODES = ['natural', 'gravity', 'elastic', 'none'];
 const LS_KEY = 'shiftingtiles.settings.v1';
 
@@ -31,9 +31,11 @@ function sanitize(s) {
     delay: clamp(s.delay, 1, 30, DEFAULTS.delay),
     bounce: clamp(s.bounce, 0, 40, DEFAULTS.bounce),
     bounceMode: BOUNCE_MODES.includes(s.bounceMode) ? s.bounceMode : DEFAULTS.bounceMode,
-    size: clamp(s.size, 12, 35, DEFAULTS.size),
+    size: clamp(s.size, 12, 70, DEFAULTS.size),
     rows: Math.round(clamp(s.rows, 2, 4, DEFAULTS.rows)),
     border: Math.round(clamp(s.border, 0, 30, DEFAULTS.border)),
+    panSpeed: clamp(s.panSpeed, 0, 3, DEFAULTS.panSpeed),
+    small: Math.round(clamp(s.small, 0, 100, DEFAULTS.small)),
   };
 }
 
@@ -46,8 +48,18 @@ function applySettings() {
   css.setProperty('--gap', `${settings.border}px`);
   document.body.dataset.bounce = settings.bounceMode;
   alignGrid();
+  retunePanos();
   restartTimer();
   syncDialog();
+}
+
+// Re-derive pan bounds/duration for panoramas already on screen so the
+// pan-speed slider (and size/rows changes) take effect without a rebuild.
+function retunePanos() {
+  for (const tile of stage.querySelectorAll('.tile.pano')) {
+    const m = pool.get(tile.dataset.imgId);
+    if (m) configurePan(tile, m);
+  }
 }
 
 // LTR rows pack from x=0, RTL rows from the right edge of the viewport, and
@@ -129,7 +141,7 @@ function setImage(el, m) {
 function makeTile() {
   const tile = document.createElement('div');
   tile.className = 'tile';
-  const dual = pool.size > 3 && Math.random() < 0.35;
+  const dual = pool.size > 3 && Math.random() * 100 < settings.small;
   if (dual) {
     tile.classList.add('dual');
     for (let i = 0; i < 2; i++) {
@@ -143,10 +155,11 @@ function makeTile() {
     tile.classList.add('single');
     const m = drawImage();
     if (m) {
-      if (m.panorama) {
+      if (m.panorama && m.width > m.height) { // wide images only, defensively
         // The pan runs on an inner element so the tile's own animation slot
         // stays free for bounce/disappear — sharing it corrupts both.
         tile.classList.add('pano');
+        tile.dataset.imgId = m.id; // lets retunePanos re-derive the pan later
         const pan = document.createElement('div');
         pan.className = 'pan';
         setImage(pan, m);
@@ -169,10 +182,11 @@ function configurePan(tile, m) {
   const tileAspect =
     ((settings.size / 100) * window.innerWidth) / (window.innerHeight / settings.rows);
   const shown = Math.min(aspect, PANO_MAX_ASPECT);
-  if (shown <= tileAspect || aspect <= tileAspect) {
-    tile.classList.add('static'); // no room to pan: crop like a normal tile
-    return;
-  }
+  // Pan speed zero disables panning; a tile at least as wide as the clamped
+  // window leaves no room to pan. Either way: a plain focal-point crop.
+  const canPan = settings.panSpeed > 0 && shown > tileAspect && aspect > tileAspect;
+  tile.classList.toggle('static', !canPan);
+  if (!canPan) return;
   // Widths below are in tile-height units. background-position-x at p%
   // aligns the p% point of the image with the p% point of the tile.
   let from = 0;
@@ -185,7 +199,7 @@ function configurePan(tile, m) {
     from = (start / (aspect - tileAspect)) * 100;
     to = ((start + shown - tileAspect) / (aspect - tileAspect)) * 100;
   }
-  const dur = Math.min(90, Math.max(8, ((shown - tileAspect) * 18) / settings.speed));
+  const dur = Math.min(90, Math.max(8, ((shown - tileAspect) * 18) / settings.panSpeed));
   tile.style.setProperty('--pan-from', `${from.toFixed(2)}%`);
   tile.style.setProperty('--pan-to', `${to.toFixed(2)}%`);
   tile.style.setProperty('--pan-dur', `${dur.toFixed(1)}s`);
@@ -329,6 +343,8 @@ const inputs = {
   size: document.getElementById('set-size'),
   rows: document.getElementById('set-rows'),
   border: document.getElementById('set-border'),
+  panSpeed: document.getElementById('set-pan-speed'),
+  small: document.getElementById('set-small'),
 };
 const outputs = {
   speed: document.getElementById('out-speed'),
@@ -337,6 +353,8 @@ const outputs = {
   size: document.getElementById('out-size'),
   rows: document.getElementById('out-rows'),
   border: document.getElementById('out-border'),
+  panSpeed: document.getElementById('out-pan-speed'),
+  small: document.getElementById('out-small'),
 };
 
 function syncDialog() {
@@ -347,12 +365,16 @@ function syncDialog() {
   inputs.size.value = settings.size;
   inputs.rows.value = settings.rows;
   inputs.border.value = settings.border;
+  inputs.panSpeed.value = settings.panSpeed;
+  inputs.small.value = settings.small;
   outputs.speed.textContent = `${settings.speed.toFixed(2)}×`;
   outputs.delay.textContent = `${settings.delay.toFixed(1)} s`;
   outputs.bounce.textContent = `${settings.bounce} px`;
   outputs.size.textContent = `${settings.size} vw`;
   outputs.rows.textContent = String(settings.rows);
   outputs.border.textContent = settings.border ? `${settings.border} px` : 'none';
+  outputs.panSpeed.textContent = settings.panSpeed ? `${settings.panSpeed.toFixed(2)}×` : 'off';
+  outputs.small.textContent = `${settings.small} %`;
 }
 
 function onChange(key, value, { rebuild = false } = {}) {
@@ -372,6 +394,8 @@ inputs.bounceMode.addEventListener('change', (e) => onChange('bounceMode', e.tar
 inputs.size.addEventListener('input', (e) => onChange('size', e.target.value, { rebuild: true }));
 inputs.rows.addEventListener('input', (e) => onChange('rows', e.target.value, { rebuild: true }));
 inputs.border.addEventListener('input', (e) => onChange('border', e.target.value));
+inputs.panSpeed.addEventListener('input', (e) => onChange('panSpeed', e.target.value));
+inputs.small.addEventListener('input', (e) => onChange('small', e.target.value, { rebuild: true }));
 document.getElementById('set-reset').addEventListener('click', () => {
   settings = { ...DEFAULTS };
   save();
