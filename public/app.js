@@ -45,8 +45,19 @@ function applySettings() {
   css.setProperty('--rows', settings.rows);
   css.setProperty('--gap', `${settings.border}px`);
   document.body.dataset.bounce = settings.bounceMode;
+  alignGrid();
   restartTimer();
   syncDialog();
+}
+
+// LTR rows pack from x=0, RTL rows from the right edge of the viewport, and
+// tile widths are all full- or half-tile. Padding the RTL anchor out to the
+// next quarter-tile grid line puts every seam in every row on one shared
+// grid, so images across rows align at half/quarter-width offsets.
+function alignGrid() {
+  const quarter = (settings.size / 400) * window.innerWidth;
+  const pad = quarter ? (quarter - (window.innerWidth % quarter)) % quarter : 0;
+  document.documentElement.style.setProperty('--rtl-pad', `${pad.toFixed(2)}px`);
 }
 
 const intervalMs = () => settings.delay * 1000;
@@ -140,15 +151,44 @@ function makeTile() {
         pan.className = 'pan';
         setImage(pan, m);
         tile.append(pan);
-        const aspect = m.width / m.height;
-        const dur = Math.min(90, Math.max(8, (aspect * 10) / settings.speed));
-        tile.style.setProperty('--pan-dur', `${dur.toFixed(1)}s`);
+        configurePan(tile, m);
       } else {
         setImage(tile, m);
       }
     }
   }
   return tile;
+}
+
+const PANO_MAX_ASPECT = 1.6; // displayed panorama content is clamped to 16:10
+
+// Limit a panorama to a 16:10 window around its focal point: the pan sweeps
+// only that window, never the image's full (possibly enormous) width.
+function configurePan(tile, m) {
+  const aspect = m.width / m.height;
+  const tileAspect =
+    ((settings.size / 100) * window.innerWidth) / (window.innerHeight / settings.rows);
+  const shown = Math.min(aspect, PANO_MAX_ASPECT);
+  if (shown <= tileAspect || aspect <= tileAspect) {
+    tile.classList.add('static'); // no room to pan: crop like a normal tile
+    return;
+  }
+  // Widths below are in tile-height units. background-position-x at p%
+  // aligns the p% point of the image with the p% point of the tile.
+  let from = 0;
+  let to = 100;
+  if (aspect > shown) {
+    const start = Math.min(
+      Math.max((m.focusX / 100) * aspect - shown / 2, 0),
+      aspect - shown,
+    );
+    from = (start / (aspect - tileAspect)) * 100;
+    to = ((start + shown - tileAspect) / (aspect - tileAspect)) * 100;
+  }
+  const dur = Math.min(90, Math.max(8, ((shown - tileAspect) * 18) / settings.speed));
+  tile.style.setProperty('--pan-from', `${from.toFixed(2)}%`);
+  tile.style.setProperty('--pan-to', `${to.toFixed(2)}%`);
+  tile.style.setProperty('--pan-dur', `${dur.toFixed(1)}s`);
 }
 
 function rowWidth(row) {
@@ -248,7 +288,10 @@ document.addEventListener('visibilitychange', () => {
 let resizeTimer = null;
 window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => stage.querySelectorAll('.row').forEach(fillRow), 250);
+  resizeTimer = setTimeout(() => {
+    alignGrid();
+    stage.querySelectorAll('.row').forEach(fillRow);
+  }, 250);
 });
 
 document.addEventListener('keydown', (e) => {

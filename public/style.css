@@ -26,10 +26,12 @@ body.idle { cursor: none; }
 	width: 200vw;
 	height: calc(100% / var(--rows));
 }
-/* Odd rows anchor to the right edge and shift the opposite way */
+/* Odd rows anchor to the right edge and shift the opposite way.
+   --rtl-pad (set by alignGrid) nudges the anchor to the next quarter-tile
+   grid line so seams line up with the left-anchored rows. */
 .row.rtl {
 	flex-direction: row-reverse;
-	margin-left: -100vw;
+	margin-left: calc(var(--rtl-pad, 0px) - 100vw);
 }
 
 .tile {
@@ -68,9 +70,16 @@ body.idle { cursor: none; }
 	animation: pan var(--pan-dur, 30s) linear infinite alternate;
 }
 .row.rtl .tile.pano .pan { animation-direction: alternate-reverse; }
+/* When the tile itself is wider than the clamped 16:10 window, panning has
+   no room — fall back to a plain focal-point crop. */
+.tile.pano.static .pan {
+	background-size: cover;
+	animation: none;
+}
+/* --pan-from/--pan-to restrict the sweep to a 16:10 window around the focus */
 @keyframes pan {
-	from { background-position-x: 0%; }
-	to   { background-position-x: 100%; }
+	from { background-position-x: var(--pan-from, 0%); }
+	to   { background-position-x: var(--pan-to, 100%); }
 }
 
 /* ---- a tile collapsing away ---- */
