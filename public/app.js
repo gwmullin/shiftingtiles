@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 // Settings
 // ---------------------------------------------------------------------------
-const DEFAULTS = { speed: 1, delay: 6, bounce: 15, bounceMode: 'natural', size: 20, rows: 2, border: 5, panSpeed: 1, small: 20 };
+const DEFAULTS = { speed: 1, delay: 3, bounce: 15, bounceMode: 'natural', size: 27, rows: 2, border: 2, panSpeed: 1, small: 20 };
 const BOUNCE_MODES = ['natural', 'gravity', 'elastic', 'none'];
 const LS_KEY = 'shiftingtiles.settings.v1';
 
