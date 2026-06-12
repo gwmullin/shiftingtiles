@@ -54,12 +54,20 @@ body.idle { cursor: none; }
 }
 .half { width: 100%; height: 50%; }
 
-/* ---- panoramas pan with the row's travel direction ---- */
-.tile.pano {
+/* ---- panoramas pan with the row's travel direction ----
+   The pan animation lives on an inner element: the tile itself must keep its
+   animation property free for bounce/disappear, or the cascade mixes the two
+   (bounce keyframes running at pan duration, infinitely — shifting the row). */
+.tile.pano { background-image: none; }
+.tile.pano .pan {
+	width: 100%;
+	height: 100%;
+	background-color: #000;
+	background-repeat: no-repeat;
 	background-size: auto 100%;
 	animation: pan var(--pan-dur, 30s) linear infinite alternate;
 }
-.row.rtl .tile.pano { animation-direction: alternate-reverse; }
+.row.rtl .tile.pano .pan { animation-direction: alternate-reverse; }
 @keyframes pan {
 	from { background-position-x: 0%; }
 	to   { background-position-x: 100%; }
