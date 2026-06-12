@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 // Settings
 // ---------------------------------------------------------------------------
-const DEFAULTS = { speed: 1, bounce: 15, bounceMode: 'natural', size: 20, rows: 2 };
+const DEFAULTS = { speed: 1, bounce: 15, bounceMode: 'natural', size: 20, rows: 2, border: 5 };
 const BOUNCE_MODES = ['natural', 'gravity', 'elastic', 'none'];
 const LS_KEY = 'shiftingtiles.settings.v1';
 const BASE_INTERVAL_MS = 6000;
@@ -33,6 +33,7 @@ function sanitize(s) {
     bounceMode: BOUNCE_MODES.includes(s.bounceMode) ? s.bounceMode : DEFAULTS.bounceMode,
     size: clamp(s.size, 12, 35, DEFAULTS.size),
     rows: Math.round(clamp(s.rows, 2, 4, DEFAULTS.rows)),
+    border: Math.round(clamp(s.border, 0, 30, DEFAULTS.border)),
   };
 }
 
@@ -42,6 +43,7 @@ function applySettings() {
   css.setProperty('--bounce-size', `${settings.bounce}px`);
   css.setProperty('--tile-w', `${settings.size}vw`);
   css.setProperty('--rows', settings.rows);
+  css.setProperty('--gap', `${settings.border}px`);
   document.body.dataset.bounce = settings.bounceMode;
   restartTimer();
   syncDialog();
@@ -264,12 +266,14 @@ const inputs = {
   bounceMode: document.getElementById('set-bounce-mode'),
   size: document.getElementById('set-size'),
   rows: document.getElementById('set-rows'),
+  border: document.getElementById('set-border'),
 };
 const outputs = {
   speed: document.getElementById('out-speed'),
   bounce: document.getElementById('out-bounce'),
   size: document.getElementById('out-size'),
   rows: document.getElementById('out-rows'),
+  border: document.getElementById('out-border'),
 };
 
 function syncDialog() {
@@ -278,10 +282,12 @@ function syncDialog() {
   inputs.bounceMode.value = settings.bounceMode;
   inputs.size.value = settings.size;
   inputs.rows.value = settings.rows;
+  inputs.border.value = settings.border;
   outputs.speed.textContent = `${settings.speed.toFixed(2)}×`;
   outputs.bounce.textContent = `${settings.bounce} px`;
   outputs.size.textContent = `${settings.size} vw`;
   outputs.rows.textContent = String(settings.rows);
+  outputs.border.textContent = settings.border ? `${settings.border} px` : 'none';
 }
 
 function onChange(key, value, { rebuild = false } = {}) {
@@ -299,6 +305,7 @@ inputs.bounce.addEventListener('input', (e) => onChange('bounce', e.target.value
 inputs.bounceMode.addEventListener('change', (e) => onChange('bounceMode', e.target.value));
 inputs.size.addEventListener('input', (e) => onChange('size', e.target.value, { rebuild: true }));
 inputs.rows.addEventListener('input', (e) => onChange('rows', e.target.value, { rebuild: true }));
+inputs.border.addEventListener('input', (e) => onChange('border', e.target.value));
 document.getElementById('set-reset').addEventListener('click', () => {
   settings = { ...DEFAULTS };
   save();
