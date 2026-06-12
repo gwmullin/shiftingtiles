@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "shiftingtiles-docker",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "docker rm -f st-preview >/dev/null 2>&1; exec docker run --rm --name st-preview -p \"$PORT:8080\" -v \"$PWD/photos\":/photos:ro -v st-test-cache:/data shiftingtiles:dev"
+      ],
+      "autoPort": true
+    }
+  ]
+}

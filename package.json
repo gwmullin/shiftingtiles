@@ -1,0 +1,19 @@
+{
+  "name": "shiftingtiles",
+  "version": "2.0.0",
+  "description": "Shifting Tiles photo screensaver with a self-hosted image processing backend",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@tensorflow-models/coco-ssd": "^2.2.3",
+    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs-backend-wasm": "^4.22.0",
+    "sharp": "^0.34.2"
+  }
+}

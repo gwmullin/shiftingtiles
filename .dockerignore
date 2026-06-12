@@ -1,0 +1,10 @@
+.git
+.github
+.claude
+node_modules
+photos
+data
+*.md
+.DS_Store
+docker-compose.yml
+Dockerfile
