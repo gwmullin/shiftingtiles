@@ -3,10 +3,9 @@
 // ---------------------------------------------------------------------------
 // Settings
 // ---------------------------------------------------------------------------
-const DEFAULTS = { speed: 1, bounce: 15, bounceMode: 'natural', size: 20, rows: 2, border: 5 };
+const DEFAULTS = { speed: 1, delay: 6, bounce: 15, bounceMode: 'natural', size: 20, rows: 2, border: 5 };
 const BOUNCE_MODES = ['natural', 'gravity', 'elastic', 'none'];
 const LS_KEY = 'shiftingtiles.settings.v1';
-const BASE_INTERVAL_MS = 6000;
 
 const stage = document.getElementById('stage');
 const overlay = document.getElementById('overlay');
@@ -29,6 +28,7 @@ function sanitize(s) {
   const clamp = (v, lo, hi, dflt) => (Number.isFinite(+v) ? Math.min(hi, Math.max(lo, +v)) : dflt);
   return {
     speed: clamp(s.speed, 0.25, 3, DEFAULTS.speed),
+    delay: clamp(s.delay, 1, 30, DEFAULTS.delay),
     bounce: clamp(s.bounce, 0, 40, DEFAULTS.bounce),
     bounceMode: BOUNCE_MODES.includes(s.bounceMode) ? s.bounceMode : DEFAULTS.bounceMode,
     size: clamp(s.size, 12, 35, DEFAULTS.size),
@@ -49,7 +49,7 @@ function applySettings() {
   syncDialog();
 }
 
-const intervalMs = () => Math.max(1600, BASE_INTERVAL_MS / settings.speed);
+const intervalMs = () => settings.delay * 1000;
 const durationMs = () => 1000 / settings.speed;
 
 // ---------------------------------------------------------------------------
@@ -262,6 +262,7 @@ dialog.addEventListener('close', wake);
 
 const inputs = {
   speed: document.getElementById('set-speed'),
+  delay: document.getElementById('set-delay'),
   bounce: document.getElementById('set-bounce'),
   bounceMode: document.getElementById('set-bounce-mode'),
   size: document.getElementById('set-size'),
@@ -270,6 +271,7 @@ const inputs = {
 };
 const outputs = {
   speed: document.getElementById('out-speed'),
+  delay: document.getElementById('out-delay'),
   bounce: document.getElementById('out-bounce'),
   size: document.getElementById('out-size'),
   rows: document.getElementById('out-rows'),
@@ -278,12 +280,14 @@ const outputs = {
 
 function syncDialog() {
   inputs.speed.value = settings.speed;
+  inputs.delay.value = settings.delay;
   inputs.bounce.value = settings.bounce;
   inputs.bounceMode.value = settings.bounceMode;
   inputs.size.value = settings.size;
   inputs.rows.value = settings.rows;
   inputs.border.value = settings.border;
   outputs.speed.textContent = `${settings.speed.toFixed(2)}×`;
+  outputs.delay.textContent = `${settings.delay.toFixed(1)} s`;
   outputs.bounce.textContent = `${settings.bounce} px`;
   outputs.size.textContent = `${settings.size} vw`;
   outputs.rows.textContent = String(settings.rows);
@@ -301,6 +305,7 @@ function onChange(key, value, { rebuild = false } = {}) {
 }
 
 inputs.speed.addEventListener('input', (e) => onChange('speed', e.target.value));
+inputs.delay.addEventListener('input', (e) => onChange('delay', e.target.value));
 inputs.bounce.addEventListener('input', (e) => onChange('bounce', e.target.value));
 inputs.bounceMode.addEventListener('change', (e) => onChange('bounceMode', e.target.value));
 inputs.size.addEventListener('input', (e) => onChange('size', e.target.value, { rebuild: true }));
