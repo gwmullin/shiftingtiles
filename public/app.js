@@ -132,12 +132,19 @@ function makeTile() {
     tile.classList.add('single');
     const m = drawImage();
     if (m) {
-      setImage(tile, m);
       if (m.panorama) {
+        // The pan runs on an inner element so the tile's own animation slot
+        // stays free for bounce/disappear — sharing it corrupts both.
         tile.classList.add('pano');
+        const pan = document.createElement('div');
+        pan.className = 'pan';
+        setImage(pan, m);
+        tile.append(pan);
         const aspect = m.width / m.height;
         const dur = Math.min(90, Math.max(8, (aspect * 10) / settings.speed));
         tile.style.setProperty('--pan-dur', `${dur.toFixed(1)}s`);
+      } else {
+        setImage(tile, m);
       }
     }
   }
@@ -191,9 +198,13 @@ function isVisible(t) {
 
 function vanish(row, tile) {
   let sib = tile.nextElementSibling;
-  for (let i = 1; sib && i <= 3; i++, sib = sib.nextElementSibling) {
+  for (let i = 1; sib && i <= 3; sib = sib.nextElementSibling) {
+    if (sib.classList.contains('disappear')) continue; // don't hijack its exit
     bounce(sib, `bounce-${i}`);
+    i++;
   }
+  // A leftover bounce class would out-cascade the disappear animation.
+  tile.classList.remove('bounce-1', 'bounce-2', 'bounce-3');
   tile.classList.add('disappear');
 
   const ttl = setTimeout(remove, durationMs() * 2.5); // safety net
@@ -214,7 +225,14 @@ function bounce(el, cls) {
   el.classList.remove('bounce-1', 'bounce-2', 'bounce-3');
   void el.offsetWidth; // restart the animation if one just ran
   el.classList.add(cls);
-  el.addEventListener('animationend', () => el.classList.remove(cls), { once: true });
+  el.addEventListener(
+    'animationend',
+    function done(e) {
+      if (!e.animationName.startsWith('bounce')) return; // ignore bubbled ends
+      el.classList.remove(cls);
+      el.removeEventListener('animationend', done);
+    },
+  );
 }
 
 function restartTimer() {
