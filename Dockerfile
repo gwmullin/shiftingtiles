@@ -1,27 +1,27 @@
-FROM node:18-alpine
+# Multi-arch (amd64/arm64/...) image: node:24-slim is published for all major
+# platforms, sharp installs the matching prebuilt libvips binary per arch, and
+# TensorFlow.js runs on its WASM/CPU backend — no GPU, no native compilation.
+FROM node:24-slim
 
-# Set the working directory
-WORKDIR /usr/src/app
+ENV NODE_ENV=production
+WORKDIR /app
 
-# Runtime libs required by node-canvas (cairo/pango/jpeg/etc).
-RUN apk add --no-cache \
-        cairo jpeg pango giflib pixman libjpeg-turbo freetype
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --no-audit --no-fund
 
-# Copy package.json and package-lock.json
-COPY package*.json ./
+COPY server.js ./
+COPY lib/ ./lib/
+COPY public/ ./public/
 
-# Build deps for native modules (canvas), removed after install.
-RUN apk add --no-cache --virtual .build-deps \
-        build-base python3 g++ \
-        cairo-dev jpeg-dev pango-dev giflib-dev pixman-dev libjpeg-turbo-dev freetype-dev \
-    && npm install --only=production \
-    && apk del .build-deps
+ENV PHOTOS_DIR=/photos \
+    CACHE_DIR=/data \
+    PORT=8080
 
-# Copy the rest of the application code
-COPY . .
+RUN mkdir -p /photos /data && chown -R node:node /photos /data
+USER node
 
-# Expose the port the app runs on
-EXPOSE 3000
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s \
+  CMD ["node", "-e", "fetch(`http://127.0.0.1:${process.env.PORT||8080}/healthz`).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
 
-# Define the command to run the application
-CMD ["npm", "start"]
+CMD ["node", "server.js"]

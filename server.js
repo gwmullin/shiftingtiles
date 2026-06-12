@@ -1,224 +1,136 @@
-const express = require('express');
-const fs = require('fs');
-const fsp = require('fs/promises');
-const path = require('path');
-const chokidar = require('chokidar');
-const {
-  loadModels,
-  isImageFile,
-  processImage,
-  removeCacheEntry,
-  metadataPath,
-  resizedPath,
-} = require('./imageProcessor');
+// Shifting Tiles server: serves the screensaver frontend, a read-only JSON
+// API, and processed images. Built on node:http only — no web framework.
+//
+// Configuration (environment variables):
+//   PHOTOS_DIR          folder scanned (recursively) for source images   [/photos]
+//   CACHE_DIR           folder for resized images + metadata + models    [/data]
+//   PORT                listen port                                      [8080]
+//   RESCAN_INTERVAL_SEC periodic rescan of PHOTOS_DIR                    [300]
+//   MAX_TILE_HEIGHT     resize cap: tallest displayed tile (px)          [1080]
+//   MAX_TILE_WIDTH      resize cap for regular images (px)               [1920]
+//   PANO_MAX_WIDTH      resize cap for panoramas (px)                    [5120]
+//   PANO_ASPECT         aspect ratio at which an image counts as a pano  [2]
+//   WEBP_QUALITY        output quality                                   [80]
+//   DETECTOR            set to "off" to disable face/pet detection
+//   TFJS_BACKEND        "wasm" (default) or "cpu"
+import http from 'node:http';
+import fs from 'node:fs';
+import fsp from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { Library } from './lib/library.js';
+import { createDetector } from './lib/detector.js';
 
-const app = express();
-const PORT = process.env.PORT || 3000;
-const REFRESH_INTERVAL = process.env.REFRESH_INTERVAL || 300000;
-const VERBOSE = process.env.VERBOSE === 'true';
+const log = {
+  info: (msg) => console.log(`[${new Date().toISOString()}] ${msg}`),
+  warn: (msg) => console.warn(`[${new Date().toISOString()}] WARN ${msg}`),
+};
 
-const imagesDir = process.env.IMAGES_DIR || path.join(__dirname, 'public', 'images');
-const cacheDir = process.env.CACHE_DIR || path.join(__dirname, 'public', 'cache');
+const num = (v, fallback) => (Number.isFinite(Number(v)) && v !== '' && v != null ? Number(v) : fallback);
 
-const metadataIndex = new Map();
-const inFlight = new Map();
+const PHOTOS_DIR = path.resolve(process.env.PHOTOS_DIR || '/photos');
+const CACHE_DIR = path.resolve(process.env.CACHE_DIR || '/data');
+const PORT = num(process.env.PORT, 8080);
+const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
 
-function forceProcess(filename) {
-  if (inFlight.has(filename)) {
-    if (VERBOSE) console.log(`[VERBOSE] Image ${filename} is already in-flight for processing.`);
-    return inFlight.get(filename);
-  }
-  const promise = processImage(filename, imagesDir, cacheDir)
-    .then(meta => {
-      metadataIndex.set(filename, meta);
-      return meta;
-    })
-    .finally(() => {
-      inFlight.delete(filename);
-    });
-  inFlight.set(filename, promise);
-  return promise;
+const opts = {
+  maxHeight: num(process.env.MAX_TILE_HEIGHT, 1080),
+  maxWidth: num(process.env.MAX_TILE_WIDTH, 1920),
+  panoMaxWidth: num(process.env.PANO_MAX_WIDTH, 5120),
+  panoAspect: num(process.env.PANO_ASPECT, 2),
+  webpQuality: num(process.env.WEBP_QUALITY, 80),
+  rescanIntervalMs: num(process.env.RESCAN_INTERVAL_SEC, 300) * 1000,
+};
+
+const detector = createDetector({
+  cacheDir: CACHE_DIR,
+  enabled: process.env.DETECTOR !== 'off',
+  log,
+});
+const library = new Library({ photosDir: PHOTOS_DIR, cacheDir: CACHE_DIR, detector, opts, log });
+
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.webp': 'image/webp',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+};
+
+const IMG_ROUTE = /^\/img\/([a-f0-9]{40})\.webp$/;
+
+function sendJson(res, body) {
+  const buf = Buffer.from(JSON.stringify(body));
+  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': buf.length, 'Cache-Control': 'no-cache' });
+  res.end(buf);
 }
 
-function ensureProcessed(filename) {
-  if (metadataIndex.has(filename)) {
-    if (VERBOSE) console.log(`[VERBOSE] Metadata for ${filename} already in index.`);
-    return Promise.resolve(metadataIndex.get(filename));
-  }
-  if (VERBOSE) console.log(`[VERBOSE] Metadata for ${filename} missing from index, triggering on-demand processing.`);
-  return forceProcess(filename);
+function sendError(res, code, message) {
+  res.writeHead(code, { 'Content-Type': 'text/plain; charset=utf-8' });
+  res.end(message);
 }
 
-app.get('/images/:filename', async (req, res, next) => {
-  const filename = req.params.filename;
-  if (!isImageFile(filename)) return next();
+function sendFile(res, filePath, headers = {}) {
+  const stream = fs.createReadStream(filePath);
+  stream.on('error', () => sendError(res, 404, 'Not found'));
+  stream.once('open', () => {
+    res.writeHead(200, { 'Content-Type': MIME[path.extname(filePath).toLowerCase()] || 'application/octet-stream', ...headers });
+    stream.pipe(res);
+  });
+}
 
-  const sourcePath = path.join(imagesDir, filename);
-  const cachedPath = resizedPath(cacheDir, filename);
+function publicMeta(m) {
+  return {
+    id: m.id,
+    url: `/img/${m.id}.webp?v=${m.mtimeMs}`,
+    width: m.width,
+    height: m.height,
+    focusX: m.focusX,
+    focusY: m.focusY,
+    panorama: m.panorama,
+  };
+}
 
-  try {
-    if (fs.existsSync(cachedPath)) {
-      if (VERBOSE) console.log(`[VERBOSE] Serving cached image directly: ${filename}`);
-      return res.sendFile(cachedPath);
-    }
-    if (fs.existsSync(sourcePath)) {
-      if (VERBOSE) console.log(`[VERBOSE] Cached image not found, processing on-demand: ${filename}`);
-      await ensureProcessed(filename);
-      return res.sendFile(cachedPath);
-    }
-    if (VERBOSE) console.log(`[VERBOSE] Source image not found: ${filename}`);
-    next();
-  } catch (error) {
-    console.error('Error processing image:', error);
-    next();
+const server = http.createServer((req, res) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    res.writeHead(405, { Allow: 'GET, HEAD' });
+    return res.end();
   }
+
+  const { pathname } = new URL(req.url, 'http://localhost');
+
+  if (pathname === '/api/images') return sendJson(res, library.list().map(publicMeta));
+  if (pathname === '/api/status') return sendJson(res, { ...library.stats(), detector: detector.state });
+  if (pathname === '/healthz') return sendError(res, 200, 'ok');
+
+  const img = pathname.match(IMG_ROUTE);
+  if (img) {
+    return sendFile(res, library.imagePath(img[1]), { 'Cache-Control': 'public, max-age=31536000, immutable' });
+  }
+
+  // Static frontend
+  const relPath = pathname === '/' ? 'index.html' : pathname.slice(1);
+  const filePath = path.normalize(path.join(PUBLIC_DIR, relPath));
+  if (!filePath.startsWith(PUBLIC_DIR + path.sep)) return sendError(res, 404, 'Not found');
+  return sendFile(res, filePath, { 'Cache-Control': 'no-cache' });
 });
 
-app.use(express.static('public'));
+await fsp.mkdir(CACHE_DIR, { recursive: true });
 
-app.get('/api/images', (req, res) => {
-  const items = [];
-  for (const [filename, meta] of metadataIndex) {
-    items.push({
-      src: 'images/' + filename,
-      focal: meta.focal,
-      aspect: meta.aspect,
-      faceCount: meta.faces.length,
-    });
-  }
-  res.json(items);
+server.listen(PORT, () => {
+  log.info(`shiftingtiles listening on http://localhost:${PORT}`);
+  log.info(`photos: ${PHOTOS_DIR}`);
+  log.info(`cache:  ${CACHE_DIR}`);
+  library.init().catch((err) => log.warn(`library init failed: ${err.message}`));
 });
 
-app.get('/api/config', (req, res) => {
-  res.json({ refreshInterval: parseInt(REFRESH_INTERVAL, 10) });
-});
-
-async function loadExistingMetadata() {
-  let entries;
-  try {
-    entries = await fsp.readdir(cacheDir);
-  } catch {
-    return 0;
-  }
-  let loaded = 0;
-  for (const file of entries) {
-    if (!file.endsWith('.json')) continue;
-    try {
-      const data = await fsp.readFile(path.join(cacheDir, file), 'utf8');
-      const meta = JSON.parse(data);
-      if (meta && meta.filename) {
-        if (VERBOSE) console.log(`[VERBOSE] Loaded cached metadata for ${meta.filename}`);
-        metadataIndex.set(meta.filename, meta);
-        loaded++;
-      }
-    } catch {
-      // skip corrupt entries; will be regenerated
-    }
-  }
-  return loaded;
-}
-
-function setupWatcher() {
-  const watcher = chokidar.watch(imagesDir, {
-    ignored: /(^|[\/\\])\../,
-    ignoreInitial: true,
-    awaitWriteFinish: { stabilityThreshold: 1000, pollInterval: 200 },
-  });
-
-  watcher.on('add', async (filePath) => {
-    const filename = path.basename(filePath);
-    if (!isImageFile(filename)) return;
-    console.log(`New image detected: ${filename}`);
-    try {
-      await ensureProcessed(filename);
-      console.log(`  ✓ ${filename}`);
-    } catch (err) {
-      console.error(`  ✗ ${filename}: ${err.message}`);
-    }
-  });
-
-  watcher.on('change', async (filePath) => {
-    const filename = path.basename(filePath);
-    if (!isImageFile(filename)) return;
-    console.log(`Image changed: ${filename}`);
-    try {
-      await forceProcess(filename);
-      console.log(`  ✓ ${filename}`);
-    } catch (err) {
-      console.error(`  ✗ ${filename}: ${err.message}`);
-    }
-  });
-
-  watcher.on('unlink', async (filePath) => {
-    const filename = path.basename(filePath);
-    if (!isImageFile(filename)) return;
-    console.log(`Image removed: ${filename}`);
-    metadataIndex.delete(filename);
-    await removeCacheEntry(cacheDir, filename);
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.on(signal, async () => {
+    log.info(`received ${signal}, shutting down`);
+    server.close();
+    await detector.dispose();
+    process.exit(0);
   });
 }
-
-async function regenerateAll() {
-  console.log('Loading face detection models (background)...');
-  await loadModels();
-  console.log('Models loaded.');
-
-  if (VERBOSE) console.log('[VERBOSE] Starting background regeneration of all images...');
-  let entries;
-  try {
-    entries = await fsp.readdir(imagesDir);
-  } catch {
-    entries = [];
-  }
-  const files = entries.filter(isImageFile);
-  const sourceSet = new Set(files);
-
-  for (const filename of [...metadataIndex.keys()]) {
-    if (!sourceSet.has(filename)) {
-      console.log(`Removing orphan cache entry: ${filename}`);
-      metadataIndex.delete(filename);
-      await removeCacheEntry(cacheDir, filename);
-    }
-  }
-
-  console.log(`Regenerating ${files.length} images in background...`);
-  const t0 = Date.now();
-  let done = 0;
-  let errors = 0;
-  for (const file of files) {
-    if (VERBOSE) console.log(`[VERBOSE] Background regenerating: ${file}`);
-    try {
-      await forceProcess(file);
-    } catch (err) {
-      errors++;
-      console.error(`  ✗ ${file}: ${err.message}`);
-    }
-    done++;
-    if (done % 10 === 0 || done === files.length) {
-      console.log(`  regenerated ${done}/${files.length}`);
-    }
-  }
-  const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
-  console.log(`Regenerated ${done} images in ${elapsed}s (${errors} errors)`);
-}
-
-async function startup() {
-  await fsp.mkdir(cacheDir, { recursive: true });
-  const loaded = await loadExistingMetadata();
-  console.log(`Loaded ${loaded} cached metadata entries.`);
-
-  setupWatcher();
-
-  regenerateAll().catch(err => {
-    console.error('Background regeneration failed:', err);
-  });
-}
-
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-  startup().catch(err => {
-    console.error('Startup failed:', err);
-    process.exit(1);
-  });
-});
-

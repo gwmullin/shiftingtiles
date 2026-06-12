@@ -1,0 +1,19 @@
+services:
+  shiftingtiles:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      PHOTOS_DIR: /photos
+      CACHE_DIR: /data
+      # RESCAN_INTERVAL_SEC: "300"
+      # MAX_TILE_HEIGHT: "1080"
+      # DETECTOR: "off"        # disable face/pet detection
+    volumes:
+      # Point the left side at your photo folder.
+      - ./photos:/photos:ro
+      - cache:/data
+    restart: unless-stopped
+
+volumes:
+  cache:

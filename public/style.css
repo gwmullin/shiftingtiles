@@ -1,0 +1,218 @@
+/* Shifting Tiles — plain CSS, themed through custom properties set by app.js */
+:root {
+	--rows: 2;
+	--tile-w: 20vw;       /* width of a single tile */
+	--gap: 5px;
+	--speed: 1;           /* multiplier; higher = faster */
+	--bounce-size: 15px;
+	--dur: calc(1s / var(--speed));
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+	margin: 0;
+	background: #000;
+	overflow: hidden;
+	font-family: system-ui, sans-serif;
+}
+body.idle { cursor: none; }
+
+/* ---- tile grid ---- */
+#stage { position: fixed; inset: 0; overflow: hidden; }
+
+.row {
+	display: flex;
+	width: 200vw;
+	height: calc(100% / var(--rows));
+}
+/* Odd rows anchor to the right edge and shift the opposite way.
+   --rtl-pad (set by alignGrid) nudges the anchor to the next quarter-tile
+   grid line so seams line up with the left-anchored rows. */
+.row.rtl {
+	flex-direction: row-reverse;
+	margin-left: calc(var(--rtl-pad, 0px) - 100vw);
+}
+
+.tile {
+	flex: 0 0 auto;
+	--w: var(--tile-w);
+	width: var(--w);
+	height: 100%;
+}
+.tile, .half {
+	background-color: #000;
+	background-repeat: no-repeat;
+	background-size: cover;
+	background-position: 50% 50%;
+	border: var(--gap) solid #000;
+}
+.tile.dual {
+	--w: calc(var(--tile-w) / 2);
+	display: flex;
+	flex-direction: column;
+	border: none;
+	background-image: none;
+}
+.half { width: 100%; height: 50%; }
+
+/* ---- panoramas pan with the row's travel direction ----
+   The pan animation lives on an inner element: the tile itself must keep its
+   animation property free for bounce/disappear, or the cascade mixes the two
+   (bounce keyframes running at pan duration, infinitely — shifting the row). */
+.tile.pano { background-image: none; }
+.tile.pano .pan {
+	width: 100%;
+	height: 100%;
+	background-color: #000;
+	background-repeat: no-repeat;
+	background-size: auto 100%;
+	animation: pan var(--pan-dur, 30s) linear infinite alternate;
+}
+.row.rtl .tile.pano .pan { animation-direction: alternate-reverse; }
+/* When the tile itself is wider than the clamped 16:10 window, panning has
+   no room — fall back to a plain focal-point crop. */
+.tile.pano.static .pan {
+	background-size: cover;
+	animation: none;
+}
+/* --pan-from/--pan-to restrict the sweep to a 16:10 window around the focus */
+@keyframes pan {
+	from { background-position-x: var(--pan-from, 0%); }
+	to   { background-position-x: var(--pan-to, 100%); }
+}
+
+/* ---- a tile collapsing away ---- */
+.tile.disappear {
+	animation: disappear var(--dur) linear forwards;
+	pointer-events: none;
+}
+.row .tile.disappear { transform-origin: left center; }
+.row.rtl .tile.disappear { transform-origin: right center; }
+@keyframes disappear {
+	0%        { transform: scale3d(1, 1, 1); width: var(--w); }
+	10%       { width: var(--w); }
+	40%       { transform: scale3d(0.01, 0.01, 1); }
+	60%, 100% { transform: scale3d(0, 0, 1); width: 0; border-width: 0; }
+}
+
+/* ---- neighbors bounce while sliding in ---- */
+.bounce-1, .bounce-2, .bounce-3 {
+	animation-duration: var(--dur);
+	animation-fill-mode: both;
+	animation-timing-function: linear;
+}
+.bounce-1 { --b: var(--bounce-size); }
+.bounce-2 { --b: calc(var(--bounce-size) * 0.5); }
+.bounce-3 { --b: calc(var(--bounce-size) * 0.5); }
+
+[data-bounce="natural"] :is(.bounce-1, .bounce-2, .bounce-3) { animation-name: bounce-natural; }
+[data-bounce="gravity"] :is(.bounce-1, .bounce-2, .bounce-3) { animation-name: bounce-gravity; }
+[data-bounce="elastic"] :is(.bounce-1, .bounce-2, .bounce-3) { animation-name: bounce-elastic; }
+
+/* the original jittery overshoot */
+@keyframes bounce-natural {
+	0%, 10% { margin-inline: 0; }
+	30%     { margin-inline: var(--b); }
+	60%     { margin-inline: 0; }
+	70%     { margin-inline: calc(var(--b) * 0.57); }
+	75%     { margin-inline: calc(var(--b) * 0.67); }
+	80%     { margin-inline: calc(var(--b) * 0.57); }
+	89%     { margin-inline: 1px; }
+	90%     { margin-inline: 0; }
+	91%     { margin-inline: 1px; }
+	96%     { margin-inline: calc(var(--b) * 0.25); }
+	100%    { margin-inline: 0; }
+}
+/* a dropped ball: each rebound shorter than the last */
+@keyframes bounce-gravity {
+	0%, 15%   { margin-inline: 0; }
+	35%       { margin-inline: var(--b); }
+	55%       { margin-inline: 0; }
+	70%       { margin-inline: calc(var(--b) * 0.45); }
+	82%       { margin-inline: 0; }
+	90%       { margin-inline: calc(var(--b) * 0.18); }
+	96%, 100% { margin-inline: 0; }
+}
+/* springy: overshoots through the rest position */
+@keyframes bounce-elastic {
+	0%, 10% { margin-inline: 0; }
+	30%     { margin-inline: var(--b); }
+	50%     { margin-inline: calc(var(--b) * -0.4); }
+	65%     { margin-inline: calc(var(--b) * 0.25); }
+	80%     { margin-inline: calc(var(--b) * -0.1); }
+	100%    { margin-inline: 0; }
+}
+
+/* ---- loading overlay ---- */
+#overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 50;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: #000;
+	color: #999;
+	font-size: 1.15rem;
+	letter-spacing: 0.02em;
+	transition: opacity 0.8s;
+}
+#overlay.hidden { opacity: 0; pointer-events: none; }
+
+/* ---- gear button (revealed by mouse movement) ---- */
+#gear {
+	position: fixed;
+	right: 24px;
+	bottom: 24px;
+	z-index: 60;
+	width: 48px;
+	height: 48px;
+	display: grid;
+	place-items: center;
+	border: none;
+	border-radius: 50%;
+	background: rgba(25, 25, 28, 0.7);
+	color: #ddd;
+	cursor: pointer;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.3s, background 0.2s, transform 0.2s;
+}
+body:not(.idle) #gear { opacity: 1; pointer-events: auto; }
+#gear:hover { background: rgba(70, 70, 78, 0.85); transform: rotate(25deg); }
+#gear svg { fill: currentColor; }
+
+/* ---- settings dialog ---- */
+#settings {
+	min-width: 320px;
+	padding: 22px 26px;
+	border: 1px solid #444;
+	border-radius: 12px;
+	background: rgba(24, 24, 28, 0.96);
+	color: #eee;
+}
+#settings::backdrop { background: rgba(0, 0, 0, 0.55); }
+#settings h2 { margin: 0 0 14px; font-size: 1.1rem; font-weight: 600; }
+#settings form { display: grid; gap: 14px; }
+#settings label { display: grid; gap: 5px; font-size: 0.85rem; color: #bbb; }
+#settings .control { display: flex; align-items: center; gap: 10px; }
+#settings input[type="range"] { flex: 1; accent-color: #4da3ff; }
+#settings output {
+	min-width: 3.6em;
+	text-align: right;
+	color: #9fd0ff;
+	font-variant-numeric: tabular-nums;
+}
+#settings select, #settings button {
+	padding: 6px 12px;
+	border: 1px solid #555;
+	border-radius: 6px;
+	background: #2a2a30;
+	color: #eee;
+	font: inherit;
+	cursor: pointer;
+}
+#settings select { flex: 1; }
+#settings .buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+#settings button:hover { background: #3a3a42; }

@@ -1,7 +1,10 @@
-node_modules
-.npm
-.dockerignore
-Dockerfile
 .git
 .github
+.claude
+node_modules
+photos
+data
 *.md
+.DS_Store
+docker-compose.yml
+Dockerfile

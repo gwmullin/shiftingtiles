@@ -1,336 +1,90 @@
 <!DOCTYPE html>
-<html>
-	<head>
-		<meta charset="UTF-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<title>Shifting Tiles Gallery</title>
-		
-		<!-- Modern Typography -->
-		<link rel="preconnect" href="https://fonts.googleapis.com">
-		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-		<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-		
-		<script src="shiftingtiles.js"></script>
-		<link rel="stylesheet" type="text/css" href="shiftingtiles.css">
-		<!-- Register CSS Properties natively to allow keyframe interpolation -->
-		<style>
-			@property --bounce-size {
-				syntax: '<length>';
-				inherits: true;
-				initial-value: 15px;
-			}
-			@property --bounce-size-small {
-				syntax: '<length>';
-				inherits: true;
-				initial-value: 8px;
-			}
-		</style>
-	</head>
-	<body>
-		<div class="gallery"></div>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>Shifting Tiles</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="stylesheet" href="style.css">
+</head>
+<body class="idle" data-bounce="natural">
+	<main id="stage" aria-label="Photo screensaver"></main>
 
-		<!-- Settings Floating Trigger Button -->
-		<button class="settings-trigger" id="settings-trigger-btn" popovertarget="settings-menu" aria-label="Open Settings">
-			<svg viewBox="0 0 24 24">
-				<path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/>
-			</svg>
-		</button>
+	<div id="overlay"><div class="msg">Loading photos…</div></div>
 
-		<!-- Glassmorphic Settings Menu Popover -->
-		<div id="settings-menu" popover>
-			<h3>
-				<svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: #a78bfa;">
-					<path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/>
-				</svg>
-				Gallery Settings
-			</h3>
-			
-			<!-- Rows Configuration -->
-			<div class="setting-group">
-				<label>Number of Rows <span class="value" id="rows-val">2</span></label>
-				<div class="segmented-control" id="rows-control">
-					<button type="button" data-val="1">1</button>
-					<button type="button" data-val="2" class="active">2</button>
-					<button type="button" data-val="3">3</button>
-					<button type="button" data-val="4">4</button>
-				</div>
+	<button id="gear" title="Settings" aria-label="Open settings">
+		<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+			<path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+		</svg>
+	</button>
+
+	<dialog id="settings" aria-label="Screensaver settings">
+		<h2>Settings</h2>
+		<form method="dialog">
+			<label>Animation speed
+				<span class="control">
+					<input type="range" id="set-speed" min="0.25" max="3" step="0.05">
+					<output id="out-speed"></output>
+				</span>
+			</label>
+			<label>New image delay
+				<span class="control">
+					<input type="range" id="set-delay" min="1" max="30" step="0.5">
+					<output id="out-delay"></output>
+				</span>
+			</label>
+			<label>Panorama pan speed
+				<span class="control">
+					<input type="range" id="set-pan-speed" min="0" max="3" step="0.05">
+					<output id="out-pan-speed"></output>
+				</span>
+			</label>
+			<label>Bounce intensity
+				<span class="control">
+					<input type="range" id="set-bounce" min="0" max="40" step="1">
+					<output id="out-bounce"></output>
+				</span>
+			</label>
+			<label>Bounce behavior
+				<span class="control">
+					<select id="set-bounce-mode">
+						<option value="natural">Natural</option>
+						<option value="gravity">Gravity</option>
+						<option value="elastic">Elastic</option>
+						<option value="none">Smooth (no bounce)</option>
+					</select>
+				</span>
+			</label>
+			<label>Image size
+				<span class="control">
+					<input type="range" id="set-size" min="12" max="70" step="1">
+					<output id="out-size"></output>
+				</span>
+			</label>
+			<label>Small tiles
+				<span class="control">
+					<input type="range" id="set-small" min="0" max="100" step="1">
+					<output id="out-small"></output>
+				</span>
+			</label>
+			<label>Border between images
+				<span class="control">
+					<input type="range" id="set-border" min="0" max="30" step="1">
+					<output id="out-border"></output>
+				</span>
+			</label>
+			<label>Rows
+				<span class="control">
+					<input type="range" id="set-rows" min="2" max="4" step="1">
+					<output id="out-rows"></output>
+				</span>
+			</label>
+			<div class="buttons">
+				<button type="button" id="set-reset">Reset defaults</button>
+				<button value="close">Close</button>
 			</div>
+		</form>
+	</dialog>
 
-			<!-- Tile Size Configuration -->
-			<div class="setting-group">
-				<label>Tile Size <span class="value" id="size-val">3</span></label>
-				<input type="range" id="size-slider" min="1" max="5" value="3" step="1">
-			</div>
-
-			<!-- Transition Speed Configuration -->
-			<div class="setting-group">
-				<label>Transition Interval <span class="value" id="speed-val">5.0s</span></label>
-				<input type="range" id="speed-slider" min="1000" max="10000" value="5000" step="500">
-			</div>
-
-			<!-- Bounce Intensity Configuration -->
-			<div class="setting-group">
-				<label>Bounce Amplitude <span class="value" id="bounce-val">15px</span></label>
-				<input type="range" id="bounce-slider" min="0" max="300" value="15" step="5">
-			</div>
-
-			<!-- Bounce Speed Configuration -->
-			<div class="setting-group">
-				<label>Bounce Speed <span class="value" id="bounce-speed-val">1.00x</span></label>
-				<input type="range" id="bounce-speed-slider" min="0.25" max="4.0" value="1.0" step="0.05">
-			</div>
-		</div>
-
-		<script>
-			document.addEventListener("DOMContentLoaded", function() {
-				let imageArray = [];
-				let initialized = false;
-				let galleryInstance = null;
-
-				// Settings State
-				let currentRows = 2;
-				let currentTileSize = 3;
-				let currentDuration = 5000;
-				let currentBounce = 15;
-				let currentBounceDuration = 800;
-
-				// Load settings from localStorage if available
-				const savedSettings = localStorage.getItem("shiftingtiles_settings");
-				if (savedSettings) {
-					try {
-						const parsed = JSON.parse(savedSettings);
-						if (typeof parsed.rows === "number") currentRows = parsed.rows;
-						if (typeof parsed.tileSize === "number") currentTileSize = parsed.tileSize;
-						if (typeof parsed.duration === "number") currentDuration = parsed.duration;
-						if (typeof parsed.bounce === "number") currentBounce = parsed.bounce;
-						if (typeof parsed.bounceDuration === "number") currentBounceDuration = parsed.bounceDuration;
-					} catch (e) {
-						console.error("Failed to parse saved settings", e);
-					}
-				}
-
-				// Synchronize UI Controls with Settings State
-				function syncUI() {
-					// 1. Sync Rows Control
-					const rowButtons = document.querySelectorAll("#rows-control button");
-					rowButtons.forEach(btn => {
-						const val = parseInt(btn.getAttribute("data-val"), 10);
-						if (val === currentRows) {
-							btn.classList.add("active");
-						} else {
-							btn.classList.remove("active");
-						}
-					});
-					document.getElementById("rows-val").textContent = currentRows;
-
-					// 2. Sync Tile Size
-					const sizeSlider = document.getElementById("size-slider");
-					sizeSlider.value = currentTileSize;
-					document.getElementById("size-val").textContent = currentTileSize;
-
-					// 3. Sync Transition Speed
-					const speedSlider = document.getElementById("speed-slider");
-					speedSlider.value = currentDuration;
-					document.getElementById("speed-val").textContent = (currentDuration / 1000).toFixed(1) + "s";
-
-					// 4. Sync Bounce Amplitude
-					const bounceSlider = document.getElementById("bounce-slider");
-					bounceSlider.value = currentBounce;
-					document.getElementById("bounce-val").textContent = currentBounce + "px";
-
-					// 5. Sync Bounce Speed
-					const bounceSpeedSlider = document.getElementById("bounce-speed-slider");
-					const speed = 800 / currentBounceDuration;
-					bounceSpeedSlider.value = speed;
-					document.getElementById("bounce-speed-val").textContent = speed.toFixed(2) + "x";
-				}
-
-				// Initialize UI state
-				syncUI();
-
-				// Mouse movement auto-hide gear button logic
-				let mouseMoveTimeout;
-				const settingsTrigger = document.getElementById("settings-trigger-btn");
-				const settingsMenu = document.getElementById("settings-menu");
-
-				function showGear() {
-					settingsTrigger.classList.add("show-settings-trigger");
-					clearTimeout(mouseMoveTimeout);
-					
-					// Native check for hover/open state
-					const isMenuOpen = settingsMenu.matches(":popover-open");
-					const isTriggerHovered = settingsTrigger.matches(":hover");
-					const isMenuHovered = settingsMenu.matches(":hover");
-
-					if (!isMenuOpen && !isTriggerHovered && !isMenuHovered) {
-						mouseMoveTimeout = setTimeout(hideGear, 3000);
-					}
-				}
-
-				function hideGear() {
-					const isMenuOpen = settingsMenu.matches(":popover-open");
-					const isTriggerHovered = settingsTrigger.matches(":hover");
-					const isMenuHovered = settingsMenu.matches(":hover");
-
-					if (!isMenuOpen && !isTriggerHovered && !isMenuHovered) {
-						settingsTrigger.classList.remove("show-settings-trigger");
-					}
-				}
-
-				document.addEventListener("mousemove", showGear);
-
-				// Prevent hiding when hovering over settings trigger or menu
-				settingsTrigger.addEventListener("mouseenter", showGear);
-				settingsTrigger.addEventListener("mouseleave", function() {
-					mouseMoveTimeout = setTimeout(hideGear, 2000);
-				});
-
-				settingsMenu.addEventListener("mouseenter", showGear);
-				settingsMenu.addEventListener("mouseleave", function() {
-					mouseMoveTimeout = setTimeout(hideGear, 2000);
-				});
-
-				// When popover closes or opens, check if we should hide/keep the gear
-				settingsMenu.addEventListener("toggle", function(event) {
-					if (event.newState === "closed") {
-						mouseMoveTimeout = setTimeout(hideGear, 1000);
-					} else {
-						clearTimeout(mouseMoveTimeout);
-					}
-				});
-
-				// Listeners for setting inputs
-				// 1. Rows Control (Segmented Buttons)
-				const rowButtons = document.querySelectorAll("#rows-control button");
-				rowButtons.forEach(btn => {
-					btn.addEventListener("click", function() {
-						rowButtons.forEach(b => b.classList.remove("active"));
-						this.classList.add("active");
-						
-						currentRows = parseInt(this.getAttribute("data-val"), 10);
-						document.getElementById("rows-val").textContent = currentRows;
-						
-						updateGallerySettings();
-					});
-				});
-
-				// 2. Tile Size Control
-				const sizeSlider = document.getElementById("size-slider");
-				sizeSlider.addEventListener("input", function() {
-					currentTileSize = parseInt(this.value, 10);
-					document.getElementById("size-val").textContent = currentTileSize;
-					updateGallerySettings();
-				});
-
-				// 3. Transition Speed Control
-				const speedSlider = document.getElementById("speed-slider");
-				speedSlider.addEventListener("input", function() {
-					currentDuration = parseInt(this.value, 10);
-					document.getElementById("speed-val").textContent = (currentDuration / 1000).toFixed(1) + "s";
-					updateGallerySettings();
-				});
-
-				// 4. Bounce Intensity Control
-				const bounceSlider = document.getElementById("bounce-slider");
-				bounceSlider.addEventListener("input", function() {
-					currentBounce = parseInt(this.value, 10);
-					document.getElementById("bounce-val").textContent = currentBounce + "px";
-					updateGallerySettings();
-				});
-
-				// 5. Bounce Speed Control
-				const bounceSpeedSlider = document.getElementById("bounce-speed-slider");
-				bounceSpeedSlider.addEventListener("input", function() {
-					const speed = parseFloat(this.value);
-					document.getElementById("bounce-speed-val").textContent = speed.toFixed(2) + "x";
-					currentBounceDuration = Math.round(800 / speed);
-					updateGallerySettings();
-				});
-
-				function saveSettings() {
-					localStorage.setItem("shiftingtiles_settings", JSON.stringify({
-						rows: currentRows,
-						tileSize: currentTileSize,
-						duration: currentDuration,
-						bounce: currentBounce,
-						bounceDuration: currentBounceDuration
-					}));
-				}
-
-				function updateGallerySettings() {
-					saveSettings();
-					if (initialized && galleryInstance) {
-						galleryInstance.update({
-							rows: currentRows,
-							tileSize: currentTileSize,
-							duration: currentDuration,
-							bounce: currentBounce,
-							bounceDuration: currentBounceDuration
-						});
-					}
-				}
-
-				function fetchImages() {
-					fetch('/api/images')
-						.then(res => {
-							if (!res.ok) throw new Error("Network response was not ok");
-							return res.json();
-						})
-						.then(images => {
-							if (!initialized) {
-								if (images.length === 0) {
-									console.warn("No images available yet, retrying...");
-									setTimeout(fetchImages, 2000);
-									return;
-								}
-								imageArray.push(...images);
-								
-								// Initialize gallery plugin with options state
-								galleryInstance = new ShiftingTiles(".gallery", imageArray, {
-									rows: currentRows,
-									tileSize: currentTileSize,
-									duration: currentDuration,
-									bounce: currentBounce,
-									bounceDuration: currentBounceDuration
-								});
-								initialized = true;
-							} else {
-								const known = {};
-								imageArray.forEach(img => { known[img.src] = true; });
-								images.forEach(img => {
-									if (!known[img.src]) {
-										imageArray.push(img);
-									}
-								});
-							}
-						})
-						.catch(error => {
-							console.error("Failed to fetch images:", error);
-						});
-				}
-
-				// Fetch config for refresh interval
-				fetch('/api/config')
-					.then(res => {
-						if (!res.ok) throw new Error("Config response was not ok");
-						return res.json();
-					})
-					.then(config => {
-						const refreshInterval = config.refreshInterval || 300000; // Default 5 mins
-						
-						// Initial fetch
-						fetchImages();
-						
-						// Set up polling
-						setInterval(fetchImages, refreshInterval);
-					})
-					.catch(() => {
-						console.error("Failed to fetch config, using default interval");
-						// Initial fetch with default polling
-						fetchImages();
-						setInterval(fetchImages, 300000);
-					});
-			});
-		</script>
-	</body>
+	<script src="app.js"></script>
+</body>
 </html>

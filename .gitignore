@@ -1,5 +1,3 @@
-node_modules
 .DS_Store
-public/images
-public/photos/cache
-.claude
+node_modules/
+data/
